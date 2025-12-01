@@ -1,0 +1,1278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>YWT Attendance by Killian (@Sacrafex)</title>
+  <meta http-equiv="Content-Security-Policy" content="script-src 'unsafe-inline';">
+  <link rel="stylesheet" type="text/css" href="main.css">
+  <style>
+
+</style>
+</head>
+<body>
+
+<svg id="glassFilters" xmlns="http://www.w3.org/2000/svg">
+<filter id="distortion">
+    <feTurbulence type="turbulence" baseFrequency="0.01 0.1" numOctaves="1" result="turbulence" />
+    <feDisplacementMap in2="turbulence" in="SourceGraphic" scale="8" xChannelSelector="R" yChannelSelector="G" />
+</filter>
+</svg>
+
+  <div class="app-container">
+    <div class="toast-container" id="toastContainer"></div>
+    <!-- Confirm Modal -->
+    <div id="confirmModal">
+      <div class="frame confirmModal">
+        <div class="confirmModalHead">
+          <div style="font-weight:700;">Load data.json</div>
+          <button id="confirmClose" class="confirmModalClose">✕</button>
+        </div>
+        <div class="confirmModalBody">
+          <div style="color:#d7dde3;">
+            Loading a new <code style="background:rgba(40,47,55,0.55); padding:2px 6px; border-radius:8px; color:#f5f7fa;">data.json</code> will replace current records. <strong>ALL</strong> local data <strong>WILL</strong> be lost. Proceed?
+          </div>
+          <div style="display:flex; justify-content:flex-end; gap:8px;">
+            <button id="confirmCancel" class="button-a" style="padding:6px 14px;">Cancel</button>
+            <button id="confirmProceed" class="button-a" data-variant="warn">Proceed</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- Admin Overlay -->
+    <div id="adminOverlay" class="adminOverlay">
+      <div class="adminOverlayWrapper" class="frame">
+        <div style="padding:10px 14px; border-bottom:1px solid rgba(255,255,255,0.06); display:flex; justify-content:space-between; align-items:center;">
+          <div style="font-weight:700;">Admin Mode</div>
+          <div style="color:#c9d1d9; font-size:0.9rem;">Arrow Keys: Navigate • +/-: adjust value • Space: toggle status • R: Remove User • Enter: Edit User</div>
+        </div>
+        <div style="padding:10px; max-height:65vh; overflow:auto;">
+          <table id="adminTable" style="width:100%;">
+            <thead>
+              <tr>
+                <tr style="font-size:12px;">
+                  <th>ID Number</th>
+                  <th>Name</th>
+                  <th>Times Late</th>
+                  <th>Last Attendance</th>
+                  <th>Attendance Rating</th>
+                  <th>Sessions</th>
+                  <th>Absences</th>
+                  <th>Excuses</th>
+                  <th>Hours</th>
+                  <th>Extra Hours</th>
+                  <th>Status</th>
+                </tr>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div style="padding:10px; border-top:1px solid rgba(255,255,255,0.06); display:flex; justify-content:flex-end; gap:10px;">
+          <input type="file" id="adminLoadInput" accept="application/json" style="display:none" />
+          <button id="adminLoadBtn" class="button-a" data-variant="warn">Load</button>
+          <button id="adminExportBtn" class="button-a" data-variant="accent">Export</button>
+          <button id="adminToggleSessionBtn" class="button-a" data-variant="warn">Toggle Session (Shift+T)</button>
+          <button id="adminClockOutAllBtn" class="button-a" data-variant="warn">Clock Everyone Out (Shift+O)</button>
+          <button id="adminEndSessionBtn" class="button-a" data-variant="danger">End Session (Shift+E)</button>
+          <button id="adminAddBtn" class="button-a">Add User (A)</button>
+          <button id="adminSaveBtn" class="button-a" data-variant="accent">Save (S)</button>
+          <button id="adminExitBtn" class="button-a" data-variant="danger">Exit (Esc)</button>
+        </div>
+      </div>
+    </div>
+    <!-- Add User Modal -->
+    <div id="addUserModal" class="addUserModal">
+      <div class="addUserModalWrapper frame">
+        <div class="addUserModalHeader">
+          <div style="font-weight:700;">Add New User</div>
+          <button id="addUserClose" style="background:transparent; color:#c9d1d9; border:none; font-size:1.2rem;">✕</button>
+        </div>
+        <form id="addUserForm" style="padding:14px; display:flex; flex-direction:column; gap:10px;">
+          <label style="display:flex; flex-direction:column; gap:4px;">
+            <span style="color:#b1b9c4">Name</span>
+            <input id="addName" type="text" required style="background:rgba(40,47,55,0.55); color:#f5f7fa; border:1px solid rgba(255,255,255,0.08); padding:10px; backdrop-filter:blur(18px) saturate(170%); -webkit-backdrop-filter:blur(18px) saturate(170%);" />
+          </label>
+          <label style="display:flex; flex-direction:column; gap:4px;">
+            <span style="color:#b1b9c4">Scan Code (ID Number)</span>
+            <input id="addCode" type="text" required style="background:rgba(40,47,55,0.55); color:#f5f7fa; border:1px solid rgba(255,255,255,0.08); padding:10px; backdrop-filter:blur(18px) saturate(170%); -webkit-backdrop-filter:blur(18px) saturate(170%);" />
+          </label>
+          <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:4px;">
+            <button type="button" id="addUserCancel" class="button-a" style="padding:6px 16px;">Cancel</button>
+            <button type="submit" id="addUserSubmit" class="button-a" data-variant="accent" style="padding:6px 16px;">Add User</button>
+          </div>
+        </form>
+      </div>
+    </div>
+    <!-- Delete User Modal -->
+    <div id="deleteUserModal" class="deleteUserModal">
+      <div class="frame" style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); width:90%; max-width:520px; background:rgba(25,31,38,0.72); backdrop-filter:blur(34px) saturate(170%) url(#distortion); -webkit-backdrop-filter:blur(34px) saturate(170%) url(#distortion); border:1px solid rgba(255,255,255,0.06); box-shadow:0 24px 52px rgba(0,0,0,0.65);">
+        <div style="padding:10px 14px; border-bottom:1px solid rgba(255,255,255,0.06); display:flex; justify-content:space-between; align-items:center;">
+          <div style="font-weight:700;">Delete User</div>
+          <button id="deleteUserClose" style="background:transparent; color:#c9d1d9; border:none; font-size:1.2rem;">✕</button>
+        </div>
+        <div style="padding:14px; display:flex; flex-direction:column; gap:10px;">
+          <div style="color:#d7dde3;">
+            Are you sure you want to delete <strong id="deleteUserName" style="color:#ffffff"></strong> (<code id="deleteUserId" style="background:rgba(40,47,55,0.55); padding:2px 6px; border-radius:8px; color:#f5f7fa;"></code>)?
+          </div>
+          <div style="display:flex; justify-content:flex-end; gap:8px;">
+            <button id="deleteUserCancel" class="button-a" style="padding:6px 16px;">Cancel</button>
+            <button id="deleteUserConfirm" class="button-a" data-variant="danger" style="padding:6px 16px;">Delete</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="info-bar">
+      <div class="info-items">
+        <div class="info-item">
+            <span id="sessionDot" class="info-label" style="position: relative; top: -2px;">◉</span>
+          <span class="info-label">Active Session:</span>
+          <span class="info-value" id="activeSession"></span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">Total Hours:</span>
+          <span class="info-value" id="totalHours"></span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">Extra Hours:</span>
+          <span class="info-value" id="extraHours"></span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">Top Stats:</span>
+          <span class="info-value" id="topHoursName"></span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">Session Uptime:</span>
+          <span class="info-value" id="sessionUptime">--</span>
+        </div>
+      </div>
+
+      <form class="search-form" method="GET" onsubmit="return debugInputCode()">
+        <input type="text" class="search-input" name="inputCode" id="inputCode" autofocus autocomplete="off">
+      </form>
+
+      <script>
+        function debugInputCode() {
+          const inputCode = document.getElementById('inputCode').value;
+          console.log('Submitting input code:', inputCode);
+          return true; // Allow form submission
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+          const urlParams = new URLSearchParams(window.location.search);
+          const inputCode = urlParams.get('inputCode');
+          if (inputCode) {
+            console.log('Received input code from server:', inputCode);
+          }
+        });
+      </script>
+    </div>
+    <div class="container .no-scrollbar">
+      <div class="table-container .no-scrollbar">
+        <table id="recordsTable" class="no-scrollbar">
+          <thead>
+            <tr>
+              <th>ID Number</th>
+              <th>Name</th>
+              <th>Times Late</th>
+              <th>Last Attendance</th>
+              <th>Attendance Rating</th>
+              <th>Sessions</th>
+              <th>Absences</th>
+              <th>Excuses</th>
+              <th>Hours</th>
+              <th>Extra Hours</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- Rendered Rows -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+    
+
+    <footer style="display: flex; justify-content: space-between; padding: 10px; background: rgba(22,27,33,0.52); backdrop-filter: blur(26px) saturate(170%) url(#distortion); -webkit-backdrop-filter: blur(26px) saturate(170%) url(#distortion); color: #b1b9c4; border-top: 1px solid rgba(255,255,255,0.08);">
+      <div id="information">
+        <strong style="color: #ffffff;">Information - </strong>
+        <span id="actionMessage">Waiting for input...</span>
+      </div>
+      <div id="footerText"></div>
+    </footer>
+
+  <script>
+    function updateActionMessage(message) {
+      const actionMessageElement = document.getElementById('actionMessage');
+      actionMessageElement.textContent = `Action: ${message}`;
+    }
+
+    updateActionMessage('Processing input...');
+  </script>
+  <script>
+    const config = {
+      adminCode: 'SET_ADMIN_CODE',
+      toggleSessionCode: 'SET_YOUR_TOGGLE_CODE',
+      clockEveryoneOutCode: 'SET_YOUR_CLOCK_OUT_CODE',
+      endSessionCode: 'SET_YOUR_END_SESSION_CODE'
+    };
+    const utils = {
+    getCellClass(value, invert = false) {
+        const v = Number(value) || 0;
+        if (invert) {
+            if (v > 3) return 'cell-poor';
+            if (v > 1) return 'cell-average';
+            return 'cell-excellent';
+        }
+        if (v >= 4) return 'cell-excellent';
+        if (v >= 2) return 'cell-good';
+        if (v >= 1) return 'cell-average';
+        return 'cell-poor';
+    },
+    showToast(message, type = 'info', duration = 2500) {
+        const container = document.getElementById('toastContainer');
+        if (!container) return;
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+        toast.textContent = message;
+        container.appendChild(toast);
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            toast.style.transform = 'translateY(-6px)';
+            setTimeout(() => toast.remove(), 200);
+        }, duration);
+    },
+    renderRows(data) {
+        const tbody = document.querySelector('#recordsTable tbody');
+        if (!tbody) return;
+        tbody.innerHTML = '';
+        data.forEach((row, index) => {
+            const tr = document.createElement('tr');
+            tr.className = row.Status === 'Clocked In' ? 'highlight' : '';
+            tr.innerHTML = `
+            <td>${row.logincodes ? row.logincodes[0] : 'N/A'}</td>
+            <td>${row.Name ?? ''}</td>
+            <td class="${utils.getCellClass(row['Times Late'], true)}">${Number(row['Times Late'] ?? 0).toFixed(0)}</td>
+            <td>${row['Last Attendance'] ? new Date(row['Last Attendance']).toLocaleString() : '--'}</td>
+            <td class="${utils.getCellClass(row['Attendance Rating'])}">${Number(row['Attendance Rating'] ?? 0).toFixed(0)}</td>
+            <td class="${utils.getCellClass(row.Sessions)}">${Number(row.Sessions ?? 0).toFixed(1)}</td>
+            <td class="${utils.getCellClass(row.Absences, true)}">${Number(row.Absences ?? 0).toFixed(1)}</td>
+            <td class="${utils.getCellClass(row.Excuses, true)}">${Number(row.Excuses ?? 0).toFixed(1)}</td>
+            <td class="${utils.getCellClass(row.Hours)}">${Number(row.Hours ?? 0).toFixed(1)}</td>
+            <td class="${utils.getCellClass(row['Extra Hours'])}">${Number(row['Extra Hours'] ?? 0).toFixed(1)}</td>
+            <td><span class='status-badge ${row.Status === 'Clocked In' ? 'status-clocked-in' : (row.Status === 'Clocked Out' ? 'status-clocked-out' : 'status-in-session')}'>${row.Status ?? ''}</span></td>
+          `;
+            tbody.appendChild(tr);
+        });
+        const dataPoints = document.querySelectorAll('#recordsTable tbody tr td');
+        dataPoints.forEach((dataPoint, i) => {
+            setTimeout(() => dataPoint.classList.add('flip-sweep'), i * 5);
+        });
+    },
+    setFooterText(config) {
+        const el = document.getElementById('footerText');
+        const showFooter = config?.bottomBar?.showFooter ?? true;
+        el.textContent = showFooter ? `${config?.teamName ?? ''} Clock in System by Killian Zabinsky (@Sacrafex)` : '';
+    },
+    updateActionMessage(message) {
+        const actionMessageElement = document.getElementById('actionMessage');
+        actionMessageElement.textContent = `Action: ${message}`;
+    },
+    saveLocal(key, value) {
+      localStorage.setItem(key, JSON.stringify(value));
+    },
+    loadLocal(key, fallback) {
+        try {
+            const raw = localStorage.getItem(key);
+            return raw ? JSON.parse(raw) : fallback;
+        } catch (e) {
+            console.warn('Local load failed', e);
+            return fallback;
+        }
+    },
+    focusInput() {
+        const input = document.getElementById('inputCode');
+        if (input) {
+            input.focus();
+            input.select();
+        }
+    },
+};
+
+window.updateActionMessage = utils.updateActionMessage; // keep compatibility
+
+let sessionStartTime = null;
+const sessionUptimeElement = document.getElementById('sessionUptime');
+sessionUptimeElement.style.color = '#ffffffff';
+
+function updateSessionUptime() {
+    if (sessionStartTime) {
+        const now = Date.now();
+        const elapsed = now - sessionStartTime;
+        const hours = Math.floor(elapsed / (1000 * 60 * 60));
+        const minutes = Math.floor((elapsed % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((elapsed % (1000 * 60)) / 1000);
+        sessionUptimeElement.textContent = `${hours}h ${minutes}m ${seconds}s`;
+    } else {
+        sessionUptimeElement.textContent = '--';
+    }
+}
+setInterval(updateSessionUptime, 1000);
+updateSessionUptime();
+
+function setSessionActive(active) {
+    const dot = document.getElementById('sessionDot');
+    if (dot) {
+        dot.style.color = active ? '#3fb950' : '#c9d1d9';
+    }
+    const label = document.getElementById('activeSession');
+    if (label) label.textContent = active ? 'Yes' : 'No';
+}
+
+let appData = [];
+let appConfig = {};
+let adminMode = false;
+let adminSel = {
+    row: 0,
+    col: 0
+};
+const editableFields = ['id', 'Name', 'Times Late', 'Last Attendance', 'Attendance Rating', 'Sessions', 'Absences', 'Excuses', 'Hours', 'Extra Hours', 'Status'];
+
+async function loadJSON(path) {
+    const res = await fetch(`${path}?ts=${Date.now()}`);
+    if (!res.ok) throw new Error(`Failed to load ${path}`);
+    return res.json();
+}
+
+function normalizeConfig(config) {
+    const c = {
+        ...config
+    };
+    c.systemState = (c.systemState ?? 'inactive').toLowerCase();
+    return c;
+}
+
+function clockEveryoneOut() {
+    appData = appData.map(r => ({
+        ...r,
+        Status: 'Clocked Out',
+        _sessionStart: undefined
+    }));
+    sessionStartTime = null;
+    setSessionActive(false);
+    utils.saveLocal('appData', appData);
+    utils.renderRows(appData);
+    if (adminMode) renderAdminTable();
+    computeStats();
+    utils.focusInput();
+}
+
+function endSession() {
+    appData = appData.map(r => {
+        const add = r._globalEarned ? 1 : 0;
+        // Calculate hours for users still clocked in
+        return {
+            ...r,
+            Status: 'Clocked Out',
+            _sessionStart: undefined,
+            _globalEarned: false,
+    ...(() => {
+      const now = Date.now();
+      let addHours = 0;
+      if (r._sessionStart) {
+        const durationHrs = (now - r._sessionStart) / (1000 * 60 * 60);
+        // ignore sessions longer than 12 hours
+        if (durationHrs > 0 && durationHrs <= 12) addHours = durationHrs;
+      }
+      const sessions = Number(r.Sessions ?? 0) + add;
+      const absences = Number(r.Absences ?? 0) + (add ? 0 : 1);
+      const hours = Number(r.Hours ?? 0) + (appConfig.systemState === 'active' ? addHours : 0);
+      const extraHours = Number(r['Extra Hours'] ?? 0) + (appConfig.systemState === 'active' ? 0 : addHours);
+      return {
+        Sessions: sessions,
+        Absences: absences,
+        Hours: hours,
+        'Extra Hours': extraHours
+      };
+    })()
+        };
+    });
+    sessionStartTime = null;
+    appConfig.systemState = 'inactive';
+    setSessionActive(false);
+    utils.saveLocal('appData', appData);
+    utils.renderRows(appData);
+    if (adminMode) renderAdminTable();
+    computeStats();
+    utils.focusInput();
+}
+
+function applyUserCode(code) {
+    let changed = false;
+    appData = appData.map(r => {
+        if (Array.isArray(r.logincodes) && r.logincodes.includes(code)) {
+            changed = true;
+            const now = Date.now();
+            if (r.Status === 'Clocked In') {
+                utils.showToast(`Clocked Out: ${r.Name}`, 'info');
+                utils.updateActionMessage(`Clocked Out: ${r.Name}`);
+                const start = r._sessionStart ?? now;
+                const hours = (now - start) / (1000 * 60 * 60);
+                if (hours <= 12) {
+                  if (appConfig.systemState === 'active') {
+                        r.Hours = Number(r.Hours ?? 0) + hours;
+                    } else {
+                        r['Extra Hours'] = Number(r['Extra Hours'] ?? 0) + hours;
+                    }
+                }
+                r._sessionStart = undefined;
+                return {
+                    ...r,
+                    Status: 'Clocked Out'
+                };
+            } else {
+            utils.showToast(`Clocked In: ${r.Name}`, 'success');
+            utils.updateActionMessage(`Clocked In: ${r.Name}`);
+            r._sessionStart = now;
+              // Late tracking & first session
+              if (appConfig.systemState === 'active' && !r._globalEarned && sessionStartTime) {
+                const lateThresholdMs = 30 * 60 * 1000;
+                if (now - sessionStartTime > lateThresholdMs) {
+                  r['Times Late'] = Number(r['Times Late'] ?? 0) + 1;
+                }
+              }
+              // Toggle global earned once per active
+              if (appConfig.systemState === 'active' && !r._globalEarned) {
+                r._globalEarned = true;
+              }
+              r['Last Attendance'] = now;
+                return {
+                    ...r,
+                    Status: 'Clocked In'
+                };
+                
+            }
+        }
+        return r;
+    });
+    // Save if changed
+    if (changed) {
+        utils.renderRows(appData);
+        computeStats();
+    }
+    if (changed && adminMode) {
+        renderAdminTable();
+    }
+    utils.focusInput();
+}
+
+function init() {
+    document.querySelector('.search-input').focus();
+}
+init();
+
+function enterAdminMode() {
+    adminMode = true;
+    // Selection Calculation
+    adminSel = {
+        row: 0,
+        col: 0
+    };
+    renderAdminTable();
+    document.getElementById('adminOverlay').style.display = 'block';
+    utils.updateActionMessage('Admin Mode: Use arrows to navigate');
+    const inputEl = document.getElementById('inputCode');
+    if (inputEl) inputEl.blur();
+    // Overlay captures key events
+    const overlay = document.getElementById('adminOverlay');
+    // Focus for keyboard events
+    if (overlay) {
+        overlay.setAttribute('tabindex', '0');
+        overlay.focus();
+    }
+}
+
+function exitAdminMode(saved = false) {
+    adminMode = false;
+    document.getElementById('adminOverlay').style.display = 'none';
+    utils.updateActionMessage(saved ? 'Admin changes saved' : 'Exited admin mode');
+    utils.renderRows(appData);
+    computeStats();
+    utils.focusInput();
+}
+
+function renderAdminTable() {
+    const tbody = document.querySelector('#adminTable tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    appData.forEach((row, rIdx) => {
+        const tr = document.createElement('tr');
+        const id = Array.isArray(row.logincodes) && row.logincodes.length ? row.logincodes.join(', ') : 'N/A';
+        // Prepare cells
+        const cells = [
+            id,
+            row.Name ?? '',
+        Number(row['Times Late'] ?? 0).toFixed(0),
+        row['Last Attendance'] ? new Date(row['Last Attendance']).toLocaleString() : '--',
+        Number(row['Attendance Rating'] ?? 0).toFixed(0),
+            Number(row.Sessions ?? 0).toFixed(1),
+            Number(row.Absences ?? 0).toFixed(1),
+            Number(row.Excuses ?? 0).toFixed(1),
+            Number(row.Hours ?? 0).toFixed(1),
+            Number(row['Extra Hours'] ?? 0).toFixed(1),
+            row.Status ?? ''
+        ];
+        // Render cells
+        cells.forEach((val, cIdx) => {
+            const td = document.createElement('td');
+            td.textContent = val;
+            td.style.border = '1px solid #30363d';
+            td.style.padding = '4px 6px';
+      // mark selected cell for scrolling
+      if (adminSel.row === rIdx && adminSel.col === cIdx) {
+        td.id = 'admin-selected-cell';
+        td.style.outline = '2px solid #E0FFFF';
+      }
+            tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+    });
+    const footerButtons = [
+      document.getElementById('adminLoadBtn'),
+      document.getElementById('adminClockOutAllBtn'),
+      document.getElementById('adminToggleSessionBtn'),
+      document.getElementById('adminEndSessionBtn'),
+      document.getElementById('adminAddBtn'),
+      document.getElementById('adminSaveBtn'),
+      document.getElementById('adminExitBtn')
+    ].filter(Boolean);
+
+    // Initialize focus area if not set
+    if (!window.__adminFocusArea) window.__adminFocusArea = 'table';
+    // Clear all outlines first
+    if (typeof window.__adminFooterIndex !== 'number') window.__adminFooterIndex = 0;
+    // Set outline on footer buttons
+    footerButtons.forEach((btn, i) => {
+      btn.style.outline = (window.__adminFocusArea === 'footer' && window.__adminFooterIndex === i) ? '2px solid #58a6ff' : 'none';
+    });
+
+    // Ensure selected cell is visible in scroll area
+    const selectedCell = document.getElementById('admin-selected-cell');
+    const tableWrapper = document.querySelector('#adminOverlay div[style*="max-height:65vh"]');
+    if (selectedCell && tableWrapper) {
+      selectedCell.scrollIntoView({ block: 'nearest' });
+    }
+}
+
+// Clamp selection within bounds
+function clampAdminSelection() {
+    // Rows and Columns
+    const maxRow = Math.max(appData.length - 1, 0);
+    const maxCol = 10;
+    adminSel.row = Math.min(Math.max(adminSel.row, 0), maxRow);
+    adminSel.col = Math.min(Math.max(adminSel.col, 0), maxCol);
+}
+
+// Handle editing the selected cell and open the modal
+function handleAdminEdit() {
+    const r = adminSel.row;
+    const c = adminSel.col;
+    const field = editableFields[c];
+    openEditModal(field, r);
+}
+
+function openEditModal(field, rowIndex) {
+    let modal = document.getElementById('editModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'editModal';
+        modal.style.position = 'fixed';
+        modal.style.inset = '0';
+        modal.style.background = 'rgba(0,0,0,0.45)';
+        modal.style.zIndex = '10001';
+        modal.innerHTML = `
+          <div style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); background:rgba(25,31,38,0.72); backdrop-filter:blur(34px) saturate(170%) url(#distortion); -webkit-backdrop-filter:blur(34px) saturate(170%) url(#distortion); border:1px solid rgba(255,255,255,0.06); padding:16px; width:90%; max-width:420px; box-shadow:0 24px 52px rgba(0,0,0,0.65);" class="frame">
+            <div style="margin-bottom:8px; font-weight:700; color:#eef2f6;">Edit <span id="editFieldLabel"></span></div>
+            <input id="editInput" type="text" style="width:100%; background:rgba(40,47,55,0.55); color:#f5f7fa; border:1px solid rgba(255,255,255,0.08); padding:10px; backdrop-filter:blur(18px) saturate(170%); -webkit-backdrop-filter:blur(18px) saturate(170%);" />
+            <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:12px;">
+              <button id="editCancel" class="button-a" style="padding:6px 16px;">Cancel</button>
+              <button id="editSave" class="button-a" data-variant="accent" style="padding:6px 16px;">Save</button>
+            </div>
+          </div>`;
+        document.body.appendChild(modal);
+    }
+    const labelEl = modal.querySelector('#editFieldLabel');
+    const inputEl = modal.querySelector('#editInput');
+    const cancelBtn = modal.querySelector('#editCancel');
+    const saveBtn = modal.querySelector('#editSave');
+    labelEl.textContent = field;
+    let currentVal;
+
+    if (field === 'id') {
+        currentVal = appData[rowIndex].logincodes ? appData[rowIndex].logincodes.join(', ') : '';
+    } else if (field === 'Extra Hours') {
+        currentVal = appData[rowIndex]['Extra Hours'] ?? 0;
+    } else {
+        currentVal = appData[rowIndex][field] ?? '';
+    }
+
+    inputEl.value = String(currentVal);
+    modal.style.display = 'block';
+    inputEl.focus();
+
+    // Handle save/cancel
+    const cleanup = () => {
+        modal.style.display = 'none';
+        modal.remove();
+    };
+    cancelBtn.onclick = () => {
+        cleanup();
+    };
+
+    saveBtn.onclick = () => {
+        const newVal = inputEl.value;
+        if (field === 'id') {
+            const parts = String(newVal).split(',').map(s => s.trim()).filter(Boolean);
+            if (!parts.length) {
+                utils.showToast('Imagine not providing text', 'error');
+                return;
+            }
+            const seen = new Set();
+            const codes = [];
+            for (const p of parts) {
+                if (!seen.has(p)) {
+                    seen.add(p);
+                    codes.push(p);
+                }
+            }
+            appData[rowIndex].logincodes = codes;
+        } else if (['Times Late', 'Sessions', 'Absences', 'Excuses', 'Hours', 'Extra Hours', 'Attendance Rating'].includes(field)) {
+            const num = Number(newVal);
+            if (Number.isNaN(num)) {
+                utils.showToast('Number please', 'error');
+                return;
+            }
+          if (field === 'Extra Hours') appData[rowIndex]['Extra Hours'] = num;
+          else appData[rowIndex][field] = num;
+        } else if (field === 'Status') {
+            const allowed = ['Clocked In', 'Clocked Out'];
+            if (!allowed.includes(newVal)) {
+                utils.showToast('Something Broke, ask KJ to reset status', 'error');
+                return;
+            }
+            appData[rowIndex].Status = newVal;
+        } else if (field === 'Name') {
+            appData[rowIndex].Name = String(newVal).trim();
+        }
+        renderAdminTable();
+        cleanup();
+    };
+}
+
+// Toggle clocked in/out status for the user
+function toggleSelectedStatus() {
+    renderAdminTable();
+    const r = adminSel.row;
+    const now = Date.now();
+    const row = appData[r];
+    if (row.Status === 'Clocked In') {
+        const start = row._sessionStart ?? now;
+        const hours = (now - start) / (1000 * 60 * 60);
+        // Add hours if within limit
+        if (hours < 12) {
+            if (appConfig.systemState === 'active') {
+                row.Hours = Number(row.Hours ?? 0) + hours;
+            } else {
+                row['Extra Hours'] = Number(row['Extra Hours'] ?? 0) + hours;
+            }
+        }
+        row._sessionStart = undefined;
+        row.Status = 'Clocked Out';
+
+    } else {
+        row._sessionStart = now;
+        row.Status = 'Clocked In';
+    // Late tracking
+    if (appConfig.systemState === 'active' && !row._globalEarned && sessionStartTime) {
+      const lateThresholdMs = 30 * 60 * 1000;
+      if (now - sessionStartTime > lateThresholdMs) {
+        row['Times Late'] = Number(row['Times Late'] ?? 0) + 1;
+      }
+    }
+    row['Last Attendance'] = now;
+      // mark session participation for this active session
+      if (appConfig.systemState === 'active' && !row._globalEarned) {
+        row._globalEarned = true;
+      }
+    }
+    renderAdminTable();
+    utils.showToast('Status toggled', 'info');
+    computeStats();
+}
+
+function toggleSessionActive() {
+    const current = appConfig.systemState === 'active';
+  if (current) {
+    endSession();
+    return;
+  }
+  // Turning on session
+  appConfig.systemState = 'active';
+  document.getElementById('activeSession').textContent = 'Yes';
+  setSessionActive(true);
+  sessionStartTime = sessionStartTime ?? Date.now();
+  // Move currently extra hours into the active session
+  appData = appData.map(r => {
+    if (r.Status === 'Clocked In') {
+      return {
+        ...r,
+        Status: 'Clocked In',
+        _sessionStart: Date.now(),
+        _globalEarned: true,
+      };
+    }
+    return { ...r, _globalEarned: false };
+  });
+    // Save config
+    utils.saveLocal('appConfig', appConfig);
+    if (window.electronAPI?.saveConfig) {
+        window.electronAPI.saveConfig(appConfig).then((res) => {
+            if (!res.success) console.error('Save config failed:', res.error);
+        });
+    }
+  utils.showToast('Session active', 'info');
+    if (adminMode) renderAdminTable();
+    computeStats();
+    utils.focusInput();
+}
+
+function isNumericField(field) {
+  return ['Times Late', 'Sessions', 'Absences', 'Excuses', 'Hours', 'Extra Hours', 'Attendance Rating'].includes(field);
+}
+
+function adjustSelectedValue(delta) {
+    const r = adminSel.row;
+    const c = adminSel.col;
+    const field = editableFields[c];
+    if (!isNumericField(field)) {
+        utils.showToast('Bro thought text was a number', 'info');
+        return;
+    }
+    const current = field === 'Extra Hours' ? (appData[r]['Extra Hours'] ?? 0) : (appData[r][field] ?? 0);
+    const next = Number(current) + delta;
+    if (field === 'Extra Hours') appData[r]['Extra Hours'] = next;
+    else appData[r][field] = next;
+    renderAdminTable();
+}
+
+// Prompt for custom value input
+function promptCustomValue() {
+    const r = adminSel.row;
+    const c = adminSel.col;
+    const field = editableFields[c];
+    let currentVal = field === 'Extra Hours' ? (appData[r]['Extra Hours'] ?? 0) : (appData[r][field] ?? '');
+    const input = prompt(`Set ${field} to:`, String(currentVal));
+    if (input === null) return;
+    if (isNumericField(field)) {
+        const num = Number(input);
+        // Validate number
+      if (Number.isNaN(num)) return utils.showToast('Yo se un numero please', 'error');
+        if (field === 'Extra Hours') appData[r]['Extra Hours'] = num;
+        else appData[r][field] = num;
+    } else {
+        if (field === 'id') {
+            const newId = String(input).trim();
+            if (!newId) return utils.showToast('Can\'t be empty dude', 'error');
+            const codes = Array.isArray(appData[r].logincodes) ? appData[r].logincodes.slice() : [];
+            if (codes.length) codes[0] = newId;
+            else codes.push(newId);
+            appData[r].logincodes = codes;
+        } else if (field === 'Status') {
+            const allowed = ['Clocked In', 'Clocked Out', 'In Session'];
+            if (!allowed.includes(input)) return utils.showToast('Something Broke, ask KJ to reset status', 'error');
+            appData[r].Status = input;
+        } else if (field === 'Name') {
+            appData[r].Name = String(input).trim();
+        }
+    }
+    renderAdminTable();
+}
+
+function openAddUserModal() {
+    const modal = document.getElementById('addUserModal');
+    const nameInput = document.getElementById('addName');
+    const codeInput = document.getElementById('addCode');
+    modal.style.display = 'block';
+    nameInput.value = '';
+    codeInput.value = '';
+    setTimeout(() => nameInput.focus(), 0);
+    // Modal is active
+      modal.setAttribute('data-active', 'true');
+}
+
+function closeAddUserModal() {
+      const modal = document.getElementById('addUserModal');
+      modal.style.display = 'none';
+      modal.removeAttribute('data-active');
+}
+
+function openDeleteUserModal(rowIndex) {
+  const modal = document.getElementById('deleteUserModal');
+  if (!modal) return;
+  const nameEl = document.getElementById('deleteUserName');
+  const idEl = document.getElementById('deleteUserId');
+  const row = appData[rowIndex];
+  const name = row?.Name ?? '';
+  const id = (Array.isArray(row?.logincodes) && row.logincodes.length) ? row.logincodes.join(', ') : 'N/A';
+  nameEl.textContent = name;
+  idEl.textContent = id;
+  modal.dataset.rowIndex = String(rowIndex);
+  modal.style.display = 'block';
+  modal.setAttribute('data-active', 'true');
+}
+
+function closeDeleteUserModal() {
+  const modal = document.getElementById('deleteUserModal');
+  if (!modal) return;
+  modal.style.display = 'none';
+  modal.removeAttribute('data-active');
+  delete modal.dataset.rowIndex;
+}
+
+function addUserFromForm(name, idCode) {
+    const newRow = {
+      // Accept multiple comma-separated codes
+      logincodes: idCode ? String(idCode).split(',').map(s => s.trim()).filter(Boolean) : [],
+      Name: String(name).trim(),
+      'Times Late': 0,
+      'Last Attendance': null,
+      'Attendance Rating': 0,
+      Sessions: 0,
+      Absences: 0,
+      Excuses: 0,
+      Hours: 0,
+      'Extra Hours': 0,
+      Status: 'Clocked Out'
+    };
+    appData.push(newRow);
+    adminSel = {
+        row: appData.length - 1,
+        col: 1
+    };
+    renderAdminTable();
+    utils.showToast('User added', 'success');
+}
+
+function saveAdminChanges() {
+    utils.saveLocal('appData', appData);
+    utils.saveLocal('appConfig', appConfig);
+    if (window.electronAPI?.saveData) {
+        window.electronAPI.saveData(appData).then((res) => {
+            if (!res.success) console.error('Save data failed:', res.error);
+        });
+    }
+    if (window.electronAPI?.saveConfig) {
+        window.electronAPI.saveConfig(appConfig).then((res) => {
+            if (!res.success) console.error('Save config failed:', res.error);
+        });
+    }
+    utils.showToast('Changes saved', 'success');
+    exitAdminMode(true);
+}
+
+async function loadData() {
+    // Load data and config
+    try {
+        utils.updateActionMessage('Loading data...');
+        const [data, config] = await Promise.all([
+            loadJSON('data.json').catch(() => []),
+            loadJSON('config.json').catch(() => ({})),
+        ]);
+        // Use local stored values if present
+        const localData = utils.loadLocal('appData', null);
+        const localConfig = utils.loadLocal('appConfig', null);
+        appData = Array.isArray(localData) ? localData : (Array.isArray(data) ? data : []);
+        appConfig = normalizeConfig(localConfig ?? config ?? {});
+        utils.setFooterText(appConfig);
+        document.getElementById('activeSession').textContent = appConfig.systemState === 'active' ? 'Yes' : 'No';
+        setSessionActive(appConfig.systemState === 'active');
+        // If a session is active on load, start uptime counter
+        sessionStartTime = appConfig.systemState === 'active' ? (sessionStartTime ?? Date.now()) : null;
+        // No longer display clock-out-all code in UI per request
+        utils.renderRows(appData);
+        utils.updateActionMessage('Ready');
+        utils.showToast('Data loaded', 'info');
+        computeStats();
+        utils.focusInput();
+    } catch (e) {
+        console.error(e);
+        utils.updateActionMessage('Failed to load data');
+        utils.showToast('Reinstall the app (if your not KJ)', 'error');
+    }
+}
+loadData();
+
+document.addEventListener('DOMContentLoaded', () => {
+const form = document.querySelector('.search-form');
+const input = document.getElementById('inputCode');
+  const adminLoadBtn = document.getElementById('adminLoadBtn');
+  const adminLoadInput = document.getElementById('adminLoadInput');
+  const confirmModal = document.getElementById('confirmModal');
+  const confirmClose = document.getElementById('confirmClose');
+  const confirmCancel = document.getElementById('confirmCancel');
+  const confirmProceed = document.getElementById('confirmProceed');
+
+  function openConfirmModal() {
+    confirmModal.style.display = 'block';
+  }
+
+  function closeConfirmModal() {
+    confirmModal.style.display = 'none';
+  }
+
+  async function handleLoadedJson(jsonText) {
+    try {
+      const parsed = JSON.parse(jsonText);
+      if (!Array.isArray(parsed)) {
+        utils.showToast('Wrong file… this isn\'t a crime dropbox.', 'error');
+        return;
+      }
+      appData = parsed;
+      localStorage.removeItem('appData');
+      utils.saveLocal('appData', appData);
+      if (window.electronAPI?.saveData) {
+        window.electronAPI.saveData(appData).then((res) => {
+          if (!res.success) console.error('Save data failed:', res.error);
+        });
+      }
+      utils.renderRows(appData);
+      if (adminMode) renderAdminTable();
+      computeStats();
+      utils.showToast('Data loaded from file', 'success');
+    } catch (err) {
+      console.error('Failed to parse JSON:', err);
+      utils.showToast('You messed up the json format somehow.', 'error');
+    }
+  }
+
+  function triggerFilePicker() {
+    adminLoadInput.value = '';
+    adminLoadInput.click();
+  }
+
+  if (adminLoadBtn) {
+    adminLoadBtn.addEventListener('click', () => {
+      // Warn user
+      openConfirmModal();
+    });
+  }
+  if (confirmClose) {
+    confirmClose.addEventListener('click', closeConfirmModal);
+  }
+  if (confirmCancel) {
+    confirmCancel.addEventListener('click', closeConfirmModal);
+  }
+  if (confirmProceed) confirmProceed.addEventListener('click', () => {
+    closeConfirmModal();
+    triggerFilePicker();
+  });
+
+  if (adminLoadInput) {
+    adminLoadInput.addEventListener('change', () => {
+      const file = adminLoadInput.files && adminLoadInput.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const text = e.target?.result;
+        handleLoadedJson(String(text));
+      };
+      reader.onerror = () => {
+        utils.showToast('I can\'t read this. Try again', 'error');
+      };
+      reader.readAsText(file, 'utf-8');
+    });
+  }
+    function exportDataJson() {
+      const dataStr = JSON.stringify(appData, null, 2);
+      const blob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const name = `data.json`;
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = name;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 0);
+      utils.showToast('Data exported', 'success');
+    }
+    const adminExportBtn = document.getElementById('adminExportBtn');
+    if (adminExportBtn) {
+      adminExportBtn.addEventListener('click', exportDataJson);
+    }
+    document.getElementById('adminAddBtn').addEventListener('click', openAddUserModal);
+    document.getElementById('adminSaveBtn').addEventListener('click', saveAdminChanges);
+    document.getElementById('adminExitBtn').addEventListener('click', () => exitAdminMode(false));
+    const adminClockAllBtn = document.getElementById('adminClockOutAllBtn');
+    if (adminClockAllBtn) {
+        adminClockAllBtn.addEventListener('click', () => {
+            clockEveryoneOut();
+            utils.showToast('All users clocked out', 'info');
+        });
+    }
+    const adminToggleSessionBtn = document.getElementById('adminToggleSessionBtn');
+    if (adminToggleSessionBtn) {
+      adminToggleSessionBtn.addEventListener('click', () => {
+        toggleSessionActive();
+        utils.showToast('Session toggled', 'info');
+      });
+    }
+    const adminEndSessionBtn = document.getElementById('adminEndSessionBtn');
+    if (adminEndSessionBtn) {
+        adminEndSessionBtn.addEventListener('click', () => {
+            endSession();
+            utils.showToast('Session ended', 'info');
+        });
+    }
+    // Add user modal events
+    document.getElementById('addUserClose').addEventListener('click', closeAddUserModal);
+    document.getElementById('addUserCancel').addEventListener('click', closeAddUserModal);
+    document.getElementById('addUserForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const name = document.getElementById('addName').value.trim();
+        const code = document.getElementById('addCode').value.trim();
+        if (!name || !code) {
+            utils.showToast('Name and Code required', 'error');
+            return;
+        }
+        addUserFromForm(name, code);
+        closeAddUserModal();
+    });
+
+    // Delete user modal events
+    const delClose = document.getElementById('deleteUserClose');
+    const delCancel = document.getElementById('deleteUserCancel');
+    const delConfirm = document.getElementById('deleteUserConfirm');
+    if (delClose) delClose.addEventListener('click', closeDeleteUserModal);
+    if (delCancel) delCancel.addEventListener('click', closeDeleteUserModal);
+    if (delConfirm) delConfirm.addEventListener('click', () => {
+      const modal = document.getElementById('deleteUserModal');
+      const idx = Number(modal?.dataset?.rowIndex ?? -1);
+      if (!Number.isInteger(idx) || idx < 0 || idx >= appData.length) {
+        utils.showToast('No user selected', 'error');
+        closeDeleteUserModal();
+        return;
+      }
+      appData.splice(idx, 1);
+      // adjust selection
+      adminSel.row = Math.max(0, Math.min(adminSel.row, appData.length - 1));
+      utils.renderRows(appData);
+      if (adminMode) renderAdminTable();
+      computeStats();
+      utils.showToast('User deleted', 'success');
+      closeDeleteUserModal();
+    });
+
+    document.addEventListener('keydown', (e) => {
+      const modal = document.getElementById('addUserModal');
+      if (!modal || modal.getAttribute('data-active') !== 'true') return;
+      const key = e.key;
+      e.stopPropagation();
+      if (key === 'Escape') { closeAddUserModal(); closeDeleteUserModal(); closeConfirmModal(); e.preventDefault(); }
+    });
+
+    document.addEventListener('keydown', (e) => {
+      const modal = document.getElementById('deleteUserModal');
+      if (!modal || modal.getAttribute('data-active') !== 'true') return;
+      const key = e.key;
+      e.stopPropagation();
+      if (key === 'Escape') { closeAddUserModal();closeDeleteUserModal();closeConfirmModal(); e.preventDefault(); return; }
+      else if (key === 'Enter') {
+        const confirmBtn = document.getElementById('deleteUserConfirm');
+        confirmBtn?.click();
+        e.preventDefault();
+      }
+    });
+
+    form.addEventListener('submit', (event) => {
+        // If in admin mode, ignore inputs from main
+        if (adminMode) {
+            input.value = '';
+            event.preventDefault();
+            return;
+        }
+        event.preventDefault();
+        const code = input.value.trim();
+        console.log('Input code:', code);
+
+        const cc = appConfig?.changeCodes ?? {};
+        if (code === config.adminCode) {
+            enterAdminMode();
+            input.value = '';
+            return;
+        } else if (code === config.toggleSessionCode) {
+            toggleSessionActive();
+            input.value = '';
+            return;
+        } else if (code === config.clockEveryoneOutCode) {
+            clockEveryoneOut();
+            utils.showToast('All users clocked out', 'info');
+            input.value = '';
+            return;
+        } else if (code === config.endSessionCode) {
+            endSession();
+            input.value = '';
+            return;
+        }
+        if (Object.values(cc).includes(code)) {
+            utils.saveLocal('appData', appData);
+            utils.saveLocal('appConfig', appConfig);
+            if (window.electronAPI?.saveData) {
+                window.electronAPI.saveData(appData).then((res) => {
+                    if (!res.success) console.error('Save data failed:', res.error);
+                });
+            }
+            if (window.electronAPI?.saveConfig) {
+                window.electronAPI.saveConfig(appConfig).then((res) => {
+                    if (!res.success) console.error('Save config failed:', res.error);
+                });
+            }
+        } else {
+            // Check for User Code and Apply if it matches
+            applyUserCode(code);
+
+            utils.saveLocal('appData', appData);
+            if (window.electronAPI?.saveData) {
+                window.electronAPI.saveData(appData).then((res) => {
+                    if (!res.success) console.error('Save data failed:', res.error);
+                });
+            }
+        }
+
+        input.value = '';
+        utils.focusInput();
+    });
+
+    // Keyboard navigation in admin mode
+    document.addEventListener('keydown', (e) => {
+      if (!adminMode) return;
+      const addModal = document.getElementById('addUserModal');
+      if (addModal && addModal.getAttribute('data-active') === 'true') return;
+      const deleteModal = document.getElementById('deleteUserModal');
+      if (deleteModal && deleteModal.getAttribute('data-active') === 'true') return;
+        const key = e.key;
+        if (key === 'ArrowUp') {
+            adminSel.row--;
+            clampAdminSelection();
+            renderAdminTable();
+            e.preventDefault();
+        } else if (key === 'ArrowDown') {
+            adminSel.row++;
+            clampAdminSelection();
+            renderAdminTable();
+            e.preventDefault();
+        } else if (key === 'ArrowLeft') {
+            adminSel.col--;
+            clampAdminSelection();
+            renderAdminTable();
+            e.preventDefault();
+        } else if (key === 'ArrowRight') {
+            adminSel.col++;
+            clampAdminSelection();
+            renderAdminTable();
+            e.preventDefault();
+        } else if (key === 'e') {
+            handleAdminEdit();
+            e.preventDefault();
+        } else if (key === ' ') {
+            toggleSelectedStatus();
+            renderAdminTable();
+            e.preventDefault();
+        } else if (key.toLowerCase() === 't' && e.shiftKey) {
+            toggleSessionActive();
+            e.preventDefault();
+        } else if (key.toLowerCase() === 'o' && e.shiftKey) {
+            clockEveryoneOut();
+            utils.showToast('All users clocked out', 'info');
+            e.preventDefault();
+        } else if (key.toLowerCase() === 'e' && e.shiftKey) {
+            endSession();
+            utils.showToast('Session ended', 'info');
+            e.preventDefault();
+        } else if (key.toLowerCase() === 'a') {
+            openAddUserModal();
+            e.preventDefault();
+        } else if (key.toLowerCase() === 's') {
+            saveAdminChanges();
+            e.preventDefault();
+        } else if (key === 'r') {
+          const r = adminSel.row;
+          if (r >= 0 && r < appData.length) {
+            openDeleteUserModal(r);
+          }
+          e.preventDefault();
+        } else if (key === 'Escape') {
+            closeAddUserModal();closeDeleteUserModal();closeConfirmModal();
+            exitAdminMode(false);
+            e.preventDefault();
+        } else if (key === '+') {
+            adjustSelectedValue(+0.5);
+            e.preventDefault();
+        } else if (key === '-') {
+            adjustSelectedValue(-0.5);
+            e.preventDefault();
+        }
+        renderAdminTable();
+        clampAdminSelection();
+    });
+});
+
+// Render Statistics
+function computeStats() {
+    const totalHours = appData.reduce((sum, r) => sum + Number(r.Hours ?? 0), 0);
+    const extraHours = appData.reduce((sum, r) => sum + Number(r['Extra Hours'] ?? 0), 0);
+    const byHours = [...appData].sort((a, b) => Number(b.Hours ?? 0) - Number(a.Hours ?? 0));
+    const topName = byHours[0]?.Name ?? '--';
+  // Compute attendance ratings
+  const scored = appData.map(r => {
+    const sessions = Number(r.Sessions ?? 0);
+    const hours = Number(r.Hours ?? 0);
+    const extra = Number(r['Extra Hours'] ?? 0);
+    const absences = Number(r.Absences ?? 0);
+    const excuses = Number(r.Excuses ?? 0);
+    const timesLate = Number(r['Times Late'] ?? 0);
+    // Weighted score calculation (higher is better)
+    const score = (sessions * 2) + (hours * 1) + (extra * 0.5)
+                - (absences * 3) - (excuses * 1.5) - (timesLate * 1);
+    return { ref: r, score };
+  });
+  const scores = scored.map(s => s.score);
+  const min = scores.length ? Math.min(...scores) : 0;
+  const max = scores.length ? Math.max(...scores) : 0;
+  scored.forEach(s => {
+    let rating = 100;
+    if (max !== min) {
+      rating = ((s.score - min) / (max - min)) * 100;
+    }
+    s.ref['Attendance Rating'] = Math.round(rating);
+  });
+    document.getElementById('totalHours').textContent = totalHours.toFixed(2);
+    document.getElementById('extraHours').textContent = extraHours.toFixed(2);
+    document.getElementById('topHoursName').textContent = topName;
+
+  // Maybe add config later in admin mode
+  appData.sort((a, b) => {
+  const ratingA = Number(a['Attendance Rating']);
+  const ratingB = Number(b['Attendance Rating']);
+  return ratingB - ratingA;
+});
+  utils.renderRows(appData);
+  if (adminMode) renderAdminTable();
+}
+
+// Stats Refresh
+setInterval(() => {
+    computeStats();
+}, 90000);
+  </script> 
+</body>
+</html>
